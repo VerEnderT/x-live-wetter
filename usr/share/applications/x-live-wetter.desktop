@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=0.0.1
+Type=Application
+Name=Wetter
+Exec=x-live-wetter
+Icon=x-live-wetter
+Categories=Utility;
+Keywords=weather;wetter;sun;rain,sonne,x-live,regen,vorhersage
+StartupNotify=true
+X-GNOME-UsesNotifications=true
+GenericName=Wetter 
+Comment=Aktuelle Wettervorhersage
+Path=
+Terminal=false
