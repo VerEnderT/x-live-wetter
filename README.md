@@ -7,8 +7,7 @@ Die App startet als Tray-Icon und kann über die Taskleiste geöffnet bzw. der W
 
 [EN] Weather forecast with tray icon
 
-The app starts as a tray icon and can be opened or the weather location changed via the taskbar.
-
+The meteorological data is retrieved via an API from open-meteo.com. The app starts as a tray icon and can be opened or changed via the taskbar.
 -----
 
 ![screenshot](screenshot.png)
