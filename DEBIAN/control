@@ -6,7 +6,11 @@ Architecture: all
 Homepage: http://github.com/verendert
 Section: utils
 Priority: optional
-Description: Example ist ein Example.
- Deutsch: ->>
- Das ist eine Example Program.
-
+Description: [DE] Wettervorhersage mit Tray Icon [EN] Weather forecast with tray icon
+ [DE] Wettervorhersage mit Tray Icon
+ Die meteorologischen Daten werden per API von open-meteo.com abgerufen. 
+ Die App startet als Tray-Icon und kann über die Taskleiste geöffnet 
+ bzw. der Wetterstandort geändert werden.
+ [EN] Weather forecast with tray icon
+ The meteorological data is retrieved via an API from open-meteo.com. 
+ The app starts as a tray icon and can be opened or changed via the taskbar.
