@@ -13,3 +13,4 @@ The meteorological data is retrieved via an API from open-meteo.com. The app sta
 
 ![screenshot](screenshot.png)
 
+-----
