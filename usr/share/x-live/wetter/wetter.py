@@ -1,21 +1,21 @@
 #!/usr/bin/python3
 
-import about
+import about 
+import xupdates
 import sys, os, json, requests, locale
 from datetime import datetime
 from PyQt5.QtWidgets import (
     QApplication, QSystemTrayIcon, QMenu, QAction, QMessageBox, QInputDialog,
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,  #QTextBrowser 
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QDesktopWidget 
 )
 from PyQt5.QtGui import QIcon, QPixmap
 
-from PyQt5.QtCore import QTimer, QSize, Qt
+from PyQt5.QtCore import QTimer, QSize, Qt, QProcess
 
 
 CONFIG_DIR = os.path.expanduser("~/.config/x-live/wetter_tray")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 AUTOSTART_FILE = os.path.expanduser("~/.config/autostart/wetter_tray.desktop")
-
 
 # Pfad zum gewünschten Arbeitsverzeichnis # Das Arbeitsverzeichnis festlegen
 arbeitsverzeichnis = os.path.expanduser('/usr/share/x-live/wetter')
@@ -27,6 +27,9 @@ class WeatherTrayApp:
     def __init__(self):
         self.app = QApplication(sys.argv)
         QApplication.setQuitOnLastWindowClosed(False) 
+        self.process = None
+        self.app_name = "x-live-wetter"
+        self.day_win = None
         self.tray = QSystemTrayIcon()
         self.buttonStyle="""    QPushButton {
                                     border: none;
@@ -93,7 +96,23 @@ class WeatherTrayApp:
                                     border-radius: 5px;
                                     background-color: black;
                                     padding: 0px;
-                                    color: black;  /* Optional: Textfarbe */
+                                    color: white;  /* Optional: Textfarbe */
+                                    font: inherit; /* Optional: Schrift vom Eltern-Widget übernehmen */
+                                }
+                                QPushButton:hover {
+                                    background-color: grey;
+                                }
+                                QPushButton:pressed {
+                                    background-color: yellow;
+                                    color: black; 
+                                }
+                            """
+        self.buttonStyle2="""   QPushButton {
+                                    border: 3px;
+                                    border-radius: 5px;
+                                    background-color: green;
+                                    padding: 0px;
+                                    color: white;  /* Optional: Textfarbe */
                                     font: inherit; /* Optional: Schrift vom Eltern-Widget übernehmen */
                                 }
                                 QPushButton:hover {
@@ -145,6 +164,11 @@ class WeatherTrayApp:
         self.menu.addAction(change_location)
         
         
+        self.update_action = QAction("Update verfügbar !!")
+        self.update_action.triggered.connect(self.start_updating)
+        self.menu.addAction(self.update_action)
+        self.update_action.setVisible(False)  # Versteckt die Aktion im Menü
+
 
         quit_action = QAction("Beenden")
         quit_action.triggered.connect(self.app.quit)
@@ -162,6 +186,7 @@ class WeatherTrayApp:
 
         self.tray.setVisible(True)
         self.weather_win = None
+        self.check_updates()
         sys.exit(self.app.exec_())
 
     # {"location": "Berlin", "lat": 52.52437, "lon": 13.41053}
@@ -447,7 +472,7 @@ Comment=Wetter Tray App
             elif i == 1:
                 date=f"Morgen\n {date}"
             else:
-                date=f"{self.weekday(self.daily["time"][i])}\n {date}"     
+                date=self.weekday(self.daily["time"][i])+f"\n {date}"     
 
 
             daylyDayTime = QPushButton(date)
@@ -457,24 +482,9 @@ Comment=Wetter Tray App
             daylyDayCode = QPushButton()
             daylyDayCode.setIconSize(QSize(50, 50))
             daylyDayCode.setFixedWidth(60)
-
-
-
-
-
-
             daylyDayCode.setStyleSheet(self.buttonStyleDay)
-
-
-
-
-
-
-
             daylyDayCode.setIcon(self.get_icon_for_code(code))
             daylyDayCode.clicked.connect(lambda checked, x=i: self.day_hour_temp(x))
-
-
             daylyLayoutDay.addWidget(daylyDayCode, alignment=Qt.AlignCenter)
             
             
@@ -506,15 +516,9 @@ Comment=Wetter Tray App
         bottomLayout.addStretch()
         
         text = "Meteorologische Daten von open-meteo.com"
-        #text = "<h4>Meteorologische Daten von <a href='https://open-meteo.com/'>open-meteo.com</a></h4><ul>"
         dataLabel=QPushButton()
-        #dataLabel.setTextFormat(Qt.RichText)
         dataLabel.setText(text)
         bottomLayout.addWidget(dataLabel)
-        
-        
-        
-        
         layout.addStretch()
         layout.addLayout(bottomLayout)
         
@@ -522,6 +526,14 @@ Comment=Wetter Tray App
         self.weather_win.resize(400, 600)
         self.weather_win.setFixedSize(900, 600)
         self.weather_win.show()
+        self.center_on_screen(self.weather_win)
+    
+    def center_on_screen(self, fenster):
+        screen = QDesktopWidget().availableGeometry().center()
+        
+        frame_geom = fenster.frameGeometry()
+        frame_geom.moveCenter(screen)
+        fenster.move(frame_geom.topLeft())
         
     def open_about(self):
         about.show_about_dialog("x-live-wetter","X-Live Wetter")
@@ -563,7 +575,7 @@ Comment=Wetter Tray App
 
         # Hintergrundbild-Label
         self.day_background = QLabel(self.day_win)
-        self.day_background.setPixmap(QPixmap("hintergrund.jpg").scaled(self.weather_win.size()))
+        self.day_background.setPixmap(QPixmap("hintergrund.jpg").scaled(self.day_win.size()))
         self.day_background.setScaledContents(True)  # <-- Wichtig!
         self.day_background.setGeometry(0, 0, 900, 600)
         self.day_background.move(0,0)
@@ -571,6 +583,7 @@ Comment=Wetter Tray App
 
         self.day_win.show()
         self.day_win.setFixedSize(self.day_win.size())
+        self.center_on_screen(self.day_win)
 
 
     def change_location(self):
@@ -584,6 +597,113 @@ Comment=Wetter Tray App
                 self.update_weather()
             else:
                 QMessageBox.warning(None, "Fehler", f"Konnte Ort nicht finden: {city}")
+
+    ### updates abrufen
+    def check_updates(self):
+        app_name  = self.app_name
+        self.xcheck = xupdates.update_info("verendert", app_name)
+        print(self.xcheck)
+        if self.xcheck["update"] == "u":
+            self.update_action.setVisible(True)  
+
+
+    def start_updating(self, url):
+        url = self.xcheck["url"]
+        self.update_win = QWidget()
+        self.update_win.setStyleSheet(self.Style1)
+        self.update_win.setWindowTitle(f"Update verfügbar")
+        self.update_win.setWindowIcon(self.get_icon_for_code(self.current_weather["code"]))
+        
+
+        update_layout=QVBoxLayout()
+        self.updateLabel = QPushButton("Eine neue Version ist verfügbar. \nSoll die neue Version herunterladen und installiert werden?")
+        self.updateLabel.setMaximumWidth(600)
+        update_layout.addWidget(self.updateLabel)
+        button_layout=QHBoxLayout()
+        self.yesButton = QPushButton("Ja, Aktuallisieren")
+        self.noButton = QPushButton("Nein, Alles bleibt wie es ist !")
+        self.yesButton.setStyleSheet(self.buttonStyle2)
+        self.noButton.setStyleSheet(self.buttonStyle1)
+        self.yesButton.clicked.connect(lambda: self.start_download(url))
+        self.noButton.clicked.connect(self.update_win.close)
+
+
+        button_layout.addWidget(self.yesButton)
+        button_layout.addWidget(self.noButton)
+        update_layout.addLayout(button_layout)
+
+        # Hintergrundbild-Label
+        self.update_background = QLabel(self.update_win)
+        self.update_background.setPixmap(QPixmap("hintergrund.jpg").scaled(self.update_win.size()))
+        self.update_background.setScaledContents(True)  # <-- Wichtig!
+        self.update_background.setGeometry(0, 0, self.update_win.size().width(), self.update_win.size().height())
+        self.update_background.move(0,0)
+        self.update_background.lower()  # Nach ganz hinten
+
+        self.update_win.setLayout(update_layout)
+        self.update_win.show()
+        self.update_win.adjustSize()        
+        self.updateLabel.setMaximumWidth(self.updateLabel.size().width())
+        self.update_win.setMaximumSize(self.update_win.size())
+        self.center_on_screen(self.update_win)
+
+
+    # Download update
+    def start_download(self, url):
+        self.yesButton.hide()
+        self.noButton.hide()
+        os.system("rm /tmp/x-live/debs/*")
+        filename = url.split("/")[-1]
+        self.updateLabel.setText(f"Start downloading: {filename}")
+        save_directory = '/tmp/x-live/debs/'
+
+        if not os.path.exists(save_directory):
+            os.makedirs(save_directory)
+
+        self.filename = os.path.join(save_directory, filename)
+
+        if not self.process:
+            self.process = QProcess()
+
+        # Setup QProcess for wget command
+        self.process.setProgram('wget')
+        self.process.setArguments(['--progress=bar:force', '-O', self.filename, url])
+        self.process.setWorkingDirectory(save_directory)
+        self.process.setProcessChannelMode(QProcess.MergedChannels)
+        self.process.readyRead.connect(self.read_output)
+        self.process.finished.connect(self.handle_finished)
+        self.process.start()
+
+    
+    def read_output(self):
+        if self.process:
+            output = self.process.readAll().data().decode()
+            output = output.replace('\r\n', '\n').replace('\r', '\n')
+            self.updateLabel.setText(output)
+            print(output)
+
+    def handle_finished(self):
+        self.updateLabel.setText(f"Finished downloading: {self.filename}")
+        self.install_update()
+
+    def install_update(self):
+        self.updateLabel.setText("\nStarte Paket Installation...\n")
+        self.process = QProcess()
+        self.process.setProcessChannelMode(QProcess.MergedChannels)
+        self.process.readyRead.connect(self.read_output)
+        self.process.finished.connect(self.process_finished)
+        
+        # Prepare the command    
+        command = "apt update && apt install -y /tmp/x-live/debs/*.deb" 
+        self.updateLabel.setText("Bitte Passwort zum installieren eingeben !")
+        self.process.start('pkexec', ['sh', '-c', command])
+
+    def process_finished(self, exit_code, exit_status):
+        if exit_status == QProcess.NormalExit and exit_code == 0:
+            self.updateLabel.setText("\nInstallation erfolgreich beendet!")
+        else:
+            self.updateLabel.setText("\nInstallation fehlgeschlagen.")
+
 
 if __name__ == "__main__":
     WeatherTrayApp()
